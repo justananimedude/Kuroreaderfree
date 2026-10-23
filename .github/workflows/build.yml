@@ -15,8 +15,21 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
+      - name: Install Android SDK (no deprecated action)
+        run: |
+          echo "ANDROID_HOME=$HOME/android-sdk" >> $GITHUB_ENV
+          mkdir -p $HOME/android-sdk/cmdline-tools
+          cd $HOME/android-sdk/cmdline-tools
+          wget -q https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
+          unzip -q commandlinetools-linux-11076708_latest.zip
+          mv cmdline-tools latest
+          export ANDROID_HOME=$HOME/android-sdk
+          export PATH=$PATH:$ANDROID_HOME/cmdline-tools/latest/bin
+          yes | sdkmanager --licenses
+          sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0"
+          echo "ANDROID_HOME=$HOME/android-sdk" >> $GITHUB_ENV
+          echo "$HOME/android-sdk/platform-tools" >> $GITHUB_PATH
+          echo "$HOME/android-sdk/cmdline-tools/latest/bin" >> $GITHUB_PATH
 
       - name: Create Project Files
         run: |
@@ -24,7 +37,7 @@ jobs:
           mkdir -p app/src/main/java/com/kuroreader/free
           mkdir -p gradle/wrapper
           echo "include ':app'" > settings.gradle
-          echo "sdk.dir=$ANDROID_HOME" > local.properties
+          echo "sdk.dir=$HOME/android-sdk" > local.properties
 
           cat > build.gradle <<'ROOTEND'
           buildscript {
@@ -68,7 +81,7 @@ jobs:
           <?xml version="1.0" encoding="utf-8"?>
           <manifest xmlns:android="http://schemas.android.com/apk/res/android">
               <uses-permission android:name="android.permission.INTERNET" />
-              <application android:allowBackup="true" android:label="KuroReader" android:theme="@android:style/Theme.Material.Light.NoActionBar">
+              <application android:label="KuroReader" android:theme="@android:style/Theme.Material.Light.NoActionBar">
                   <activity android:name=".MainActivity" android:exported="true">
                       <intent-filter><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent-filter>
                   </activity>
@@ -108,10 +121,10 @@ jobs:
           ./gradle-8.5/bin/gradle wrapper --gradle-version 8.5
           chmod +x gradlew
 
-      - name: Build Debug APK
+      - name: Build APK
         run: ./gradlew assembleDebug
 
-      - name: Check APK Exists
+      - name: Check APK
         run: ls -lh app/build/outputs/apk/debug/
 
       - name: Upload to Releases
@@ -119,4 +132,4 @@ jobs:
         with:
           tag_name: v1.0-${{ github.run_number }}
           name: KuroReader APK ${{ github.run_number }}
-         
+          files: app/build/outputs/apk/debug/app-debug.apk
