@@ -12,7 +12,22 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      - uses: android-actions/setup-android@v3
+      - name: Setup Android SDK
+        run: |
+          echo "ANDROID_HOME is $ANDROID_HOME"
+          # Find a working sdkmanager - GitHub has it in 2 places
+          if [ -f "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" ]; then
+            SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          else
+            SDKMANAGER=$(find $ANDROID_HOME -name sdkmanager -type f | head -n 1)
+          fi
+          echo "Using $SDKMANAGER"
+          
+          # Accept ALL licenses non-interactively
+          yes | $SDKMANAGER --licenses || true
+          
+          # Install required packages
+          $SDKMANAGER "platform-tools" "platforms;android-34" "build-tools;34.0.0"
 
       - name: Create and Build Project
         run: |
@@ -38,7 +53,7 @@ jobs:
           EOF
 
           cat > build.gradle <<'EOF'
-          // root project - intentionally empty
+          // empty root
           EOF
 
           cat > app/build.gradle <<'EOF'
@@ -46,11 +61,9 @@ jobs:
             id 'com.android.application' version '8.2.2'
             id 'org.jetbrains.kotlin.android' version '1.9.22'
           }
-
           android {
             namespace 'com.kuroreader.free'
             compileSdk 34
-
             defaultConfig {
               applicationId "com.kuroreader.free"
               minSdk 26
@@ -58,24 +71,12 @@ jobs:
               versionCode 1
               versionName "1.0"
             }
-
             compileOptions {
               sourceCompatibility JavaVersion.VERSION_17
               targetCompatibility JavaVersion.VERSION_17
             }
-            kotlinOptions {
-              jvmTarget = "17"
-            }
-            buildTypes {
-              release {
-                minifyEnabled false
-              }
-              debug {
-                minifyEnabled false
-              }
-            }
+            kotlinOptions { jvmTarget = "17" }
           }
-
           dependencies {
             implementation 'androidx.core:core-ktx:1.12.0'
             implementation 'androidx.appcompat:appcompat:1.6.1'
@@ -85,12 +86,8 @@ jobs:
           cat > app/src/main/AndroidManifest.xml <<'EOF'
           <?xml version="1.0" encoding="utf-8"?>
           <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-            <application 
-              android:label="KuroReader" 
-              android:theme="@android:style/Theme.Material.Light.NoActionBar">
-              <activity 
-                android:name=".MainActivity" 
-                android:exported="true">
+            <application android:label="KuroReader" android:theme="@android:style/Theme.Material.Light.NoActionBar">
+              <activity android:name=".MainActivity" android:exported="true">
                 <intent-filter>
                   <action android:name="android.intent.action.MAIN"/>
                   <category android:name="android.intent.category.LAUNCHER"/>
@@ -108,11 +105,7 @@ jobs:
           class MainActivity : AppCompatActivity() {
             override fun onCreate(savedInstanceState: Bundle?) {
               super.onCreate(savedInstanceState)
-              setContentView(TextView(this).apply { 
-                text = "KuroReader APK Works!"
-                textSize = 20f
-                setPadding(50, 200, 50, 50)
-              })
+              setContentView(TextView(this).apply { text = "KuroReader APK Works!" })
             }
           }
           EOF
@@ -129,8 +122,7 @@ jobs:
           EOF
 
           wget -q https://github.com/gradle/gradle/raw/v8.5.0/gradle/wrapper/gradle-wrapper.jar -O gradle/wrapper/gradle-wrapper.jar
-          echo "#!/bin/sh" > gradlew
-          echo 'exec java -jar $(dirname $0)/gradle/wrapper/gradle-wrapper.jar "$@"' >> gradlew
+          printf '#!/bin/sh\nexec java -jar $(dirname $0)/gradle/wrapper/gradle-wrapper.jar "$@"\n' > gradlew
           chmod +x gradlew
 
           ./gradlew assembleDebug --stacktrace
