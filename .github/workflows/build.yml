@@ -1,5 +1,6 @@
 name: Build APK
 on: [push, workflow_dispatch]
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -10,7 +11,12 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: Build APK
+      - name: Install Android SDK
+        run: |
+          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
+          $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0"
+
+      - name: Create and Build Project
         run: |
           mkdir -p app/src/main/java/com/kuroreader/free
           
@@ -23,7 +29,6 @@ jobs:
             }
           }
           dependencyResolutionManagement {
-            repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
             repositories {
               google()
               mavenCentral()
@@ -33,21 +38,15 @@ jobs:
           EOF
 
           echo "sdk.dir=$ANDROID_HOME" > local.properties
-          
+
           cat > build.gradle <<'EOF'
-          buildscript {
-            repositories { google(); mavenCentral() }
-            dependencies {
-              classpath 'com.android.tools.build:gradle:8.2.2'
-              classpath 'org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.22'
-            }
-          }
+          // root build file - empty
           EOF
-          
+
           cat > app/build.gradle <<'EOF'
           plugins {
-            id 'com.android.application'
-            id 'org.jetbrains.kotlin.android'
+            id 'com.android.application' version '8.2.2'
+            id 'org.jetbrains.kotlin.android' version '1.9.22'
           }
           android {
             namespace 'com.kuroreader.free'
@@ -59,16 +58,12 @@ jobs:
               versionCode 1
               versionName "1.0"
             }
-            buildTypes {
-              debug { minifyEnabled false }
-            }
           }
           dependencies {
             implementation 'androidx.appcompat:appcompat:1.6.1'
-            implementation 'androidx.core:core-ktx:1.12.0'
           }
           EOF
-          
+
           cat > app/src/main/AndroidManifest.xml <<'EOF'
           <?xml version="1.0" encoding="utf-8"?>
           <manifest xmlns:android="http://schemas.android.com/apk/res/android">
@@ -82,32 +77,25 @@ jobs:
             </application>
           </manifest>
           EOF
-          
+
           cat > app/src/main/java/com/kuroreader/free/MainActivity.kt <<'EOF'
           package com.kuroreader.free
           import android.os.Bundle
           import android.widget.TextView
           import androidx.appcompat.app.AppCompatActivity
           class MainActivity : AppCompatActivity() {
-            override fun onCreate(b: Bundle?) {
-              super.onCreate(b)
-              val t = TextView(this)
-              t.text = "KuroReader OK - APK Works!"
-              t.textSize = 22f
-              t.setPadding(80,400,80,80)
-              setContentView(t)
+            override fun onCreate(savedInstanceState: Bundle?) {
+              super.onCreate(savedInstanceState)
+              setContentView(TextView(this).apply { text = "KuroReader APK Works!" })
             }
           }
           EOF
 
-          if [ ! -f gradlew ]; then
-            wget -q https://services.gradle.org/distributions/gradle-8.5-bin.zip
-            unzip -q gradle-8.5-bin.zip
-            ./gradle-8.5/bin/gradle wrapper --gradle-version 8.5
-            chmod +x gradlew
-          fi
+          wget -q https://services.gradle.org/distributions/gradle-8.5-bin.zip
+          unzip -q gradle-8.5-bin.zip
+          ./gradle-8.5/bin/gradle wrapper --gradle-version 8.5
+          chmod +x gradlew
           ./gradlew assembleDebug
-          ls -lh app/build/outputs/apk/debug/
 
       - name: Upload APK
         uses: actions/upload-artifact@v5
