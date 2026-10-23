@@ -12,28 +12,23 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
+      - uses: gradle/actions/setup-gradle@v3
+        with:
+          gradle-version: 8.5
+
       - name: Setup Android SDK
         run: |
-          echo "ANDROID_HOME is $ANDROID_HOME"
-          # Find a working sdkmanager - GitHub has it in 2 places
-          if [ -f "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" ]; then
-            SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
-          else
+          SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          if [ ! -f "$SDKMANAGER" ]; then
             SDKMANAGER=$(find $ANDROID_HOME -name sdkmanager -type f | head -n 1)
           fi
-          echo "Using $SDKMANAGER"
-          
-          # Accept ALL licenses non-interactively
           yes | $SDKMANAGER --licenses || true
-          
-          # Install required packages
           $SDKMANAGER "platform-tools" "platforms;android-34" "build-tools;34.0.0"
 
       - name: Create and Build Project
         run: |
           mkdir -p app/src/main/java/com/kuroreader/free
-          mkdir -p gradle/wrapper
-
+          
           cat > settings.gradle <<'EOF'
           pluginManagement {
             repositories {
@@ -53,7 +48,7 @@ jobs:
           EOF
 
           cat > build.gradle <<'EOF'
-          // empty root
+          // root - empty
           EOF
 
           cat > app/build.gradle <<'EOF'
@@ -112,19 +107,10 @@ jobs:
 
           echo "sdk.dir=$ANDROID_HOME" > local.properties
 
-          cat > gradle/wrapper/gradle-wrapper.properties <<'EOF'
-          distributionBase=GRADLE_USER_HOME
-          distributionPath=wrapper/dists
-          distributionUrl=https\://services.gradle.org/distributions/gradle-8.5-bin.zip
-          networkTimeout=10000
-          zipStoreBase=GRADLE_USER_HOME
-          zipStorePath=wrapper/dists
-          EOF
-
-          wget -q https://github.com/gradle/gradle/raw/v8.5.0/gradle/wrapper/gradle-wrapper.jar -O gradle/wrapper/gradle-wrapper.jar
-          printf '#!/bin/sh\nexec java -jar $(dirname $0)/gradle/wrapper/gradle-wrapper.jar "$@"\n' > gradlew
+          # This creates a CORRECT gradlew + gradle-wrapper.jar
+          gradle wrapper --gradle-version 8.5
           chmod +x gradlew
-
+          
           ./gradlew assembleDebug --stacktrace
 
       - name: Upload APK
