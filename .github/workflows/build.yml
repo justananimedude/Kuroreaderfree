@@ -7,10 +7,10 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Set up JDK 17
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           java-version: '17'
           distribution: 'temurin'
@@ -23,16 +23,12 @@ jobs:
           rm -rf app build .gradle gradle
           mkdir -p app/src/main/java/com/kuroreader/free
           mkdir -p gradle/wrapper
-          
           echo "include ':app'" > settings.gradle
           echo "sdk.dir=$ANDROID_HOME" > local.properties
 
           cat > build.gradle <<'ROOTEND'
           buildscript {
-              repositories {
-                  google()
-                  mavenCentral()
-              }
+              repositories { google(); mavenCentral() }
               dependencies {
                   classpath 'com.android.tools.build:gradle:8.1.4'
                   classpath 'org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.10'
@@ -55,18 +51,12 @@ jobs:
                   versionCode 1
                   versionName "1.0"
               }
-              buildTypes {
-                  debug {
-                      minifyEnabled false
-                  }
-              }
+              buildTypes { debug { minifyEnabled false } }
               compileOptions {
                   sourceCompatibility JavaVersion.VERSION_17
                   targetCompatibility JavaVersion.VERSION_17
               }
-              kotlinOptions {
-                  jvmTarget = '17'
-              }
+              kotlinOptions { jvmTarget = '17' }
           }
           dependencies {
               implementation 'androidx.core:core-ktx:1.12.0'
@@ -78,17 +68,9 @@ jobs:
           <?xml version="1.0" encoding="utf-8"?>
           <manifest xmlns:android="http://schemas.android.com/apk/res/android">
               <uses-permission android:name="android.permission.INTERNET" />
-              <application
-                  android:allowBackup="true"
-                  android:label="KuroReader"
-                  android:theme="@android:style/Theme.Material.Light.NoActionBar">
-                  <activity
-                      android:name=".MainActivity"
-                      android:exported="true">
-                      <intent-filter>
-                          <action android:name="android.intent.action.MAIN" />
-                          <category android:name="android.intent.category.LAUNCHER" />
-                      </intent-filter>
+              <application android:allowBackup="true" android:label="KuroReader" android:theme="@android:style/Theme.Material.Light.NoActionBar">
+                  <activity android:name=".MainActivity" android:exported="true">
+                      <intent-filter><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent-filter>
                   </activity>
               </application>
           </manifest>
@@ -115,8 +97,6 @@ jobs:
           distributionBase=GRADLE_USER_HOME
           distributionPath=wrapper/dists
           distributionUrl=https\://services.gradle.org/distributions/gradle-8.5-bin.zip
-          networkTimeout=10000
-          validateDistributionUrl=true
           zipStoreBase=GRADLE_USER_HOME
           zipStorePath=wrapper/dists
           WRAPPEREND
@@ -127,17 +107,16 @@ jobs:
           unzip -q gradle-8.5-bin.zip
           ./gradle-8.5/bin/gradle wrapper --gradle-version 8.5
           chmod +x gradlew
-          ls -lh gradlew
 
       - name: Build Debug APK
-        run: ./gradlew assembleDebug --info
+        run: ./gradlew assembleDebug
 
       - name: Check APK Exists
         run: ls -lh app/build/outputs/apk/debug/
 
-      - name: Upload to Releases (Download Link)
-        uses: softprops/action-gh-release@v1
+      - name: Upload to Releases
+        uses: softprops/action-gh-release@v2
         with:
           tag_name: v1.0-${{ github.run_number }}
           name: KuroReader APK ${{ github.run_number }}
-          files: app/build/outputs/apk/debug/app-debug.apk
+         
